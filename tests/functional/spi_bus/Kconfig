@@ -41,4 +41,20 @@ config SPI_BUS_LOG_LEVEL
 config SIDEWALK_GPIO_MAX
     default 6
 
+choice SIDEWALK_NRFX_SPI_INSTANCE_ID
+	prompt "Instance of the NRX SPI driver"
+	depends on SOC_NRF52840
+	default SIDEWALK_NRFX_SPI2
+
+config SIDEWALK_NRFX_SPI2
+	bool "SPI2"
+	depends on SOC_NRF52840
+	select NRFX_SPI2
+
+endchoice # SIDEWALK_NRFX_SPI_INSTANCE_ID
+
+config SIDEWALK_NRFX_SPI_ID
+	depends on SOC_NRF52840
+	default 2
+
 source "Kconfig.zephyr"
