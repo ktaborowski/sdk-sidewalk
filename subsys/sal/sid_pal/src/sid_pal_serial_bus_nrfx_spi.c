@@ -48,6 +48,8 @@ static sid_error_t bus_serial_spi_xfer(const struct sid_pal_serial_bus_iface *if
 
 	LOG_DBG("%s(%p, %p, %d)", __func__, (void *)tx, (void *)rx, xfer_size);
 
+	// LOG_HEXDUMP_INF(tx, xfer_size, "TX");
+
 	result = nrfx_spi_init(&spi, &config, NULL, NULL);
 	if (result != NRFX_SUCCESS) {
 		LOG_ERR("NRFX driver init fail: %08x", result);
@@ -61,6 +63,8 @@ static sid_error_t bus_serial_spi_xfer(const struct sid_pal_serial_bus_iface *if
 	}
 
 	nrfx_spi_uninit(&spi);
+
+	// LOG_HEXDUMP_INF(rx, xfer_size, "RX");
 
 	return ret;
 }

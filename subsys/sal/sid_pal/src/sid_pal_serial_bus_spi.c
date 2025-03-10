@@ -63,6 +63,8 @@ static sid_error_t bus_serial_spi_xfer(const struct sid_pal_serial_bus_iface *if
 		},
 	};
 
+	// LOG_HEXDUMP_DBG(tx_buff[0].buf, tx_buff[0].len, "TX");
+
 	struct spi_buf_set tx_set = { .buffers = tx_buff, .count = 1 };
 
 	struct spi_buf rx_buff[] = {
@@ -81,6 +83,8 @@ static sid_error_t bus_serial_spi_xfer(const struct sid_pal_serial_bus_iface *if
 		LOG_ERR("spi xfer err %d", err);
 		ret = SID_ERROR_GENERIC;
 	}
+
+	// LOG_HEXDUMP_DBG(rx_buff[0].buf, rx_buff[0].len, "RX");
 
 	return ret;
 }

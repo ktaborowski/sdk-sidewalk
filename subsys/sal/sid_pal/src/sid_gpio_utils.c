@@ -108,6 +108,8 @@ int sid_gpio_utils_gpio_read(uint32_t gpio_number, uint8_t *value)
 	}
 	*value = ret_val;
 
+	// LOG_INF("R %s.%d: %d",ctx.supported_pins[gpio_number].gpio.port->name, ctx.supported_pins[gpio_number].gpio.pin, *value);
+
 	return SID_ERROR_NONE;
 }
 
@@ -118,6 +120,8 @@ int sid_gpio_utils_gpio_set(uint32_t gpio_number, uint8_t value)
 		LOG_ERR("Can not set value to GPIO that is not OUTPUT %d", gpio_number);
 		return -EINVAL;
 	}
+
+	// LOG_INF("W %s.%d: %d",ctx.supported_pins[gpio_number].gpio.port->name, ctx.supported_pins[gpio_number].gpio.pin, value);
 
 	return gpio_pin_set_raw(ctx.supported_pins[gpio_number].gpio.port,
 				ctx.supported_pins[gpio_number].gpio.pin, value);
@@ -130,6 +134,8 @@ int sid_gpio_utils_gpio_toggle(uint32_t gpio_number)
 		LOG_ERR("Can not toggle value to GPIO that is not OUTPUT %d", gpio_number);
 		return -EINVAL;
 	}
+
+	// LOG_INF("T %s.%d",ctx.supported_pins[gpio_number].gpio.port->name, ctx.supported_pins[gpio_number].gpio.pin);
 
 	return gpio_pin_toggle(ctx.supported_pins[gpio_number].gpio.port,
 			       ctx.supported_pins[gpio_number].gpio.pin);
@@ -191,6 +197,8 @@ static void sid_gpio_irq_callback(const struct device *gpio, struct gpio_callbac
 		return;
 	}
 	struct sid_gpio_util_pin *pin = CONTAINER_OF(cb, struct sid_gpio_util_pin, callback);
+	// LOG_INF("C %s.%d", pin->gpio.port->name, pin->gpio.pin);
+
 	k_work_submit_to_queue(&sidewalk_gpio_workq, &pin->handler_worker);
 }
 
