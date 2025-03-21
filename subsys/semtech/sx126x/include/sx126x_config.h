@@ -109,6 +109,12 @@ typedef struct {
     uint32_t gpio_rf_sw_ena;
     uint32_t gpio_tx_bypass;
 
+	uint32_t gpio_raa_tx;
+	uint32_t gpio_radio_tx;
+	uint32_t gpio_raa_rx;
+	uint32_t gpio_radio_rx;
+	uint32_t gpio_radio_irq;
+
     struct sid_pal_serial_bus_client bus_selector;
     radio_sx126x_tcxo_t tcxo;
     sid_pal_radio_state_transition_timings_t state_timings;

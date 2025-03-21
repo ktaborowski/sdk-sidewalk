@@ -24,6 +24,17 @@
 	};
 };
 
+&uart0 {
+	status = "disabled";
+};
+
+&i2c0 {
+	status = "disabled";
+};
+
+&uart1 {
+	status = "disabled";
+};
 
 /{
 	nrfx_spi_gpios{
@@ -64,5 +75,30 @@
 			gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH|GPIO_PULL_DOWN)>;
 			label = "semtech_sx1262 DIO1";
 		};
+	};
+
+	debug_gpios{
+		compatible = "gpio-keys";
+		debug_gpio_raa_tx: raa_tx {
+			gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio raa tx";
+		};
+		debug_gpio_radio_irq: radio_irq {
+			gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio irq";
+		};
+		debug_gpio_radio_tx: radio_tx {
+			gpios = <&gpio0 31 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio tx";
+		};
+		debug_gpio_radio_rx: radio_rx {
+			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio rx";
+		};
+		debug_gpio_raa_rx: raa_rx {
+			gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio raa rx";
+		};
+
 	};
 };

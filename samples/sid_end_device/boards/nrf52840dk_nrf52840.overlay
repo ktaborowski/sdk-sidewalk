@@ -16,40 +16,20 @@
 	nrfx_spi_gpios{
 		compatible = "gpio-keys";
 		nrfx_spi_sck: sck {
-			gpios = <&gpio1 0xF GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
 			label = "spi_sck";
 		};
 		nrfx_spi_miso: miso {
-			gpios = <&gpio1 0xE GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
 			label = "spi_miso";
 		};
 		nrfx_spi_mosi: mosi {
-			gpios = <&gpio1 0xD GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
 			label = "spi_mosi";
 		};
 		nrfx_spi_cs: cs {
-			gpios = <&gpio1 0x8 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
 			label = "spi_cs";
-		};
-	};
-
-	state_notifier_gpios{
-		compatible = "gpio-keys";
-		state_notifier_error: error  {
-			gpios = <&gpio1 0x7 0x0>;
-			label = "Application state error";
-		};
-		state_notifier_dfu: dfu  {
-			gpios = <&gpio1 0x1 0x0>;
-			label = "Application state dfu";
-		};
-		state_notifier_sending: sending  {
-			gpios = <&gpio1 0x3 0x0>;
-			label = "Application state sending";
-		};
-		state_notifier_receiving: receiving  {
-			gpios = <&gpio1 0x2 0x0>;
-			label = "Application state receiving";
 		};
 	};
 
@@ -58,30 +38,51 @@
 		state-notifier-time-sync = &led1;
 		state-notifier-registered = &led2;
 		state-notifier-working = &led3;
-		state-notifier-error = &state_notifier_error;
-		state-notifier-dfu = &state_notifier_dfu;
-		state-notifier-sending = &state_notifier_sending;
-		state-notifier-receiving = &state_notifier_receiving;
 	};
 
 	semtech_sx1262_gpios{
 		compatible = "gpio-keys";
 		semtech_sx1262_reset_gpios: reset {
-			gpios = <&gpio0 0x3 (GPIO_ACTIVE_LOW|GPIO_PULL_UP)>;
+			gpios = <&gpio0 3 (GPIO_ACTIVE_LOW|GPIO_PULL_UP)>;
 			label = "semtech_sx1262 Reset";
 		};
 		semtech_sx1262_busy_gpios: busy {
-			gpios = <&gpio1 0x4 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>;
 			label = "semtech_sx1262 Busy";
 		};
 		semtech_sx1262_antenna_enable_gpios: antena_enable {
-			gpios = <&gpio1 0xa GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
 			label = "semtech_sx1262 Antena Enable";
 		};
 		semtech_sx1262_dio1_gpios: dio1 {
-			gpios = <&gpio1 0x6 (GPIO_ACTIVE_HIGH|GPIO_PULL_DOWN)>;
+			gpios = <&gpio1 6 (GPIO_ACTIVE_HIGH|GPIO_PULL_DOWN)>;
 			label = "semtech_sx1262 DIO1";
 		};
+	};
+
+	debug_gpios{
+		compatible = "gpio-keys";
+		debug_gpio_raa_tx: raa_tx {
+			gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio raa tx";
+		};
+		debug_gpio_radio_irq: radio_irq {
+			gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio irq";
+		};
+		debug_gpio_radio_tx: radio_tx {
+			gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio tx";
+		};
+		debug_gpio_radio_rx: radio_rx {
+			gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio radio rx";
+		};
+		debug_gpio_raa_rx: raa_rx {
+			gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+			label = "debug gpio raa rx";
+		};
+
 	};
 
 	chosen {

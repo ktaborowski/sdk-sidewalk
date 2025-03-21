@@ -19,6 +19,8 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/logging/log.h>
 
+#include <sid_pal_gpio_ifc.h>
+
 LOG_MODULE_REGISTER(sid_common, CONFIG_SIDEWALK_LOG_LEVEL);
 
 sid_error_t sid_pal_common_init(const platform_specific_init_parameters_t *platform_init_parameters)
@@ -36,6 +38,33 @@ sid_error_t sid_pal_common_init(const platform_specific_init_parameters_t *platf
 	(void)bt_enable(NULL);
 	(void)bt_disable();
 #endif /* defined(CONFIG_SOC_SERIES_NRF53X) */
+
+	sid_error_t ret_gpio = SID_ERROR_NONE;
+	ret_gpio = sid_pal_gpio_set_direction(platform_init_parameters->radio_cfg->gpio_raa_tx,
+				   SID_PAL_GPIO_DIRECTION_OUTPUT);
+	if (ret_gpio) {
+		LOG_ERR("gpio_raa_tx err: %d", ret_gpio);
+	}
+	ret_gpio = sid_pal_gpio_set_direction(platform_init_parameters->radio_cfg->gpio_radio_tx,
+				   SID_PAL_GPIO_DIRECTION_OUTPUT);
+	if (ret_gpio) {
+		LOG_ERR("gpio_radio_tx err: %d", ret_gpio);
+	}
+	ret_gpio = sid_pal_gpio_set_direction(platform_init_parameters->radio_cfg->gpio_raa_rx,
+				   SID_PAL_GPIO_DIRECTION_OUTPUT);
+	if (ret_gpio) {
+		LOG_ERR("gpio_raa_rx err: %d", ret_gpio);
+	}
+	ret_gpio = sid_pal_gpio_set_direction(platform_init_parameters->radio_cfg->gpio_radio_rx,
+				   SID_PAL_GPIO_DIRECTION_OUTPUT);
+	if (ret_gpio) {
+		LOG_ERR("gpio_radio_rx err: %d", ret_gpio);
+	}
+	ret_gpio = sid_pal_gpio_set_direction(platform_init_parameters->radio_cfg->gpio_radio_irq,
+				   SID_PAL_GPIO_DIRECTION_OUTPUT);
+	if (ret_gpio) {
+		LOG_ERR("gpio_radio_irq err: %d", ret_gpio);
+	}
 #endif /* defined(CONFIG_SIDEWALK_SUBGHZ_SUPPORT) */
 
 #if defined(CONFIG_SIDEWALK_TEMPERATURE)

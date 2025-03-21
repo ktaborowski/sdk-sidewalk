@@ -814,6 +814,8 @@ int32_t sid_pal_radio_start_tx(uint32_t timeout)
 {
     int32_t err;
 
+    (void)sid_pal_gpio_write(drv_ctx.config->gpio_radio_tx, 1);
+
     do {
         if ((err = set_trim_cap_val_to_radio(drv_ctx.trim >> 8, drv_ctx.trim & 0xFF))
                    != RADIO_ERROR_NONE) {
@@ -835,6 +837,8 @@ int32_t sid_pal_radio_start_tx(uint32_t timeout)
 
         drv_ctx.radio_state = SID_PAL_RADIO_TX;
      } while(0);
+
+    (void)sid_pal_gpio_write(drv_ctx.config->gpio_radio_tx, 0);
 
     return err;
 }
@@ -879,6 +883,8 @@ int32_t sid_pal_radio_start_rx(uint32_t timeout)
 {
     int32_t err;
 
+    (void)sid_pal_gpio_write(drv_ctx.config->gpio_radio_rx, 1);
+
     do {
 
         bool pbl_det_timer = false;
@@ -910,6 +916,8 @@ int32_t sid_pal_radio_start_rx(uint32_t timeout)
         }
         drv_ctx.radio_state = SID_PAL_RADIO_RX;
      } while(0);
+
+    (void)sid_pal_gpio_write(drv_ctx.config->gpio_radio_rx, 0);
 
     return err;
 }

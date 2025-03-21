@@ -192,6 +192,28 @@ const radio_sx126x_device_config_t *get_radio_cfg(void)
 
 	__ASSERT(radio_sx1262_cfg.gpio_tx_bypass <= GPIO_UNUSED_PIN, "gpio_tx_bypass invalid GPIO");
 
+	radio_sx1262_cfg.gpio_raa_tx =
+		sid_gpio_utils_register_gpio((struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(
+			DT_NODELABEL(debug_gpio_raa_tx), gpios, INVALID_DT_GPIO));
+	radio_sx1262_cfg.gpio_radio_tx =
+		sid_gpio_utils_register_gpio((struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(
+			DT_NODELABEL(debug_gpio_radio_tx), gpios, INVALID_DT_GPIO));
+	radio_sx1262_cfg.gpio_raa_rx =
+		sid_gpio_utils_register_gpio((struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(
+			DT_NODELABEL(debug_gpio_raa_rx), gpios, INVALID_DT_GPIO));
+	radio_sx1262_cfg.gpio_radio_rx =
+		sid_gpio_utils_register_gpio((struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(
+			DT_NODELABEL(debug_gpio_radio_rx), gpios, INVALID_DT_GPIO));
+	radio_sx1262_cfg.gpio_radio_irq =
+		sid_gpio_utils_register_gpio((struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(
+			DT_NODELABEL(debug_gpio_radio_irq), gpios, INVALID_DT_GPIO));
+
+	__ASSERT(radio_sx1262_cfg.gpio_raa_tx < GPIO_UNUSED_PIN, "gpio_raa_tx invalid GPIO");
+	__ASSERT(radio_sx1262_cfg.gpio_radio_tx < GPIO_UNUSED_PIN, "gpio_radio_tx invalid GPIO");
+	__ASSERT(radio_sx1262_cfg.gpio_raa_rx < GPIO_UNUSED_PIN, "gpio_raa_rx invalid GPIO");
+	__ASSERT(radio_sx1262_cfg.gpio_radio_rx < GPIO_UNUSED_PIN, "gpio_radio_rx invalid GPIO");
+	__ASSERT(radio_sx1262_cfg.gpio_radio_irq < GPIO_UNUSED_PIN, "gpio_radio_irq invalid GPIO");
+
 	return &radio_sx1262_cfg;
 }
 
