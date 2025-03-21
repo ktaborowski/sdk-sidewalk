@@ -122,8 +122,7 @@ static radio_sx126x_device_config_t radio_sx1262_cfg = {
 #if defined(CONFIG_BOARD_RAK4631)
 		.ctrl = SX126X_TCXO_CTRL_DIO3,
 		.voltage = RADIO_SX126X_TCXO_CTRL_1_8V,
-		// 2 ms to 30.25 us ticks
-		.timeout = (2000000 + 30250 / 2) / 30250,
+		.timeout = 10,
 #else
 		.ctrl = SX126X_TCXO_CTRL_NONE,
 #endif /* CONFIG_BOARD_RAK4631 */
@@ -138,11 +137,10 @@ static radio_sx126x_device_config_t radio_sx1262_cfg = {
 	},
 
 	.state_timings = {
-		.sleep_to_full_power_us = 500,
+		.sleep_to_full_power_us = 485,
 		.full_power_to_sleep_us = 0,
 		.rx_to_tx_us = 0,
 		.tx_to_rx_us = 0,
-		.tcxo_delay_us = 500
 	},
 
 	.internal_buffer = {
