@@ -231,6 +231,7 @@ sid_semtech: &spi0 {
 	pinctrl-1 = <&spi0_sleep>;
 	pinctrl-names = "default", "sleep";
 	clock-frequency = <DT_FREQ_M(8)>;
+	cs-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
 };
 
 &qspi {

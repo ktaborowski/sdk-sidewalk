@@ -63,6 +63,7 @@ extern "C" {
 #define    SID_PAL_RADIO_STANDBY_XOSC         6
 #define    SID_PAL_RADIO_RX_DC                7
 #define    SID_PAL_RADIO_BUSY                 8
+#define    SID_PAL_RADIO_SCAN                 9
 
 /** Sidewalk Phy Radio Region For Regional Config*/
 typedef enum {

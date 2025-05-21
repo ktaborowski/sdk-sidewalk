@@ -63,7 +63,7 @@ zephyr_library_sources_ifdef(CONFIG_SIDEWALK_SW_INTERRUPTS sid_sw_interrupts.c)
 
 zephyr_library_sources_ifdef(CONFIG_SIDEWALK_DELAY sid_delay.c)
 
-if(CONFIG_SOC_NRF52840)
+if(CONFIG_SOC_NRF52840 AND NOT CONFIG_BOARD_WIO_TRACKER_1110)
 zephyr_library_sources_ifdef(CONFIG_SIDEWALK_SPI_BUS sid_pal_serial_bus_nrfx_spi.c)
 else()
 zephyr_library_sources_ifdef(CONFIG_SIDEWALK_SPI_BUS sid_pal_serial_bus_spi.c)

@@ -190,7 +190,7 @@ config SIDEWALK_PAL_RADIO_SOURCE
 	bool "Build sub-GHz radio driver from sources [EXPERIMENTAL]"
 	select EXPERIMENTAL
 
-if SIDEWALK_SPI_BUS
+if SIDEWALK_SPI_BUS && !BOARD_WIO_TRACKER_1110
 
 choice SIDEWALK_NRFX_SPI_INSTANCE_ID
 	prompt "Instance of the NRX SPI driver"
