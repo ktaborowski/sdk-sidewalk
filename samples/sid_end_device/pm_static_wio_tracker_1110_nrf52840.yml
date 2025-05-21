@@ -1,0 +1,41 @@
+boot_mbr:
+  address: 0x00000
+  end_address: 0x01000
+  region: flash_primary
+  size: 0x01000
+app:
+  address: 0x01000
+  end_address: 0xD0000
+  region: flash_primary
+  size: 0xCF000
+mfg_storage:
+  address: 0xD0000
+  end_address: 0xD1000
+  region: flash_primary
+  size: 0x1000
+# GAP: 0xD1000 to 0xF4000
+dummy:
+  address: 0xD1000
+  end_address: 0xF4000
+  region: flash_primary
+  size: 0x23000
+bootloader:
+  address: 0xF4000
+  end_address: 0xFC000
+  region: flash_primary
+  size: 0x8000
+settings_storage:
+  address: 0xFC000
+  end_address: 0xFE000
+  region: flash_primary
+  size: 0x2000
+bootloader_mbr_params:
+  address: 0xFE000
+  end_address: 0xFF000
+  region: flash_primary
+  size: 0x1000
+bootloader_settings:
+  address: 0xFF000
+  end_address: 0x100000
+  region: flash_primary
+  size: 0x1000
