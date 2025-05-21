@@ -5,9 +5,6 @@
 
 if BOARD_WIO_TRACKER_1110
 
-config BOARD
-	default "wio_tracker_1110"
-
 config BT_CTLR
 	default BT
 
