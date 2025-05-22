@@ -13,18 +13,23 @@ mfg_storage:
   end_address: 0xD1000
   region: flash_primary
   size: 0x1000
-# GAP: 0xD1000 to 0xF4000
-dummy:
+settings_storage:
   address: 0xD1000
+  end_address: 0xD3000
+  region: flash_primary
+  size: 0x2000
+# GAP
+dummy:
+  address: 0xD3000
   end_address: 0xF4000
   region: flash_primary
-  size: 0x23000
+  size: 0x21000
 bootloader:
   address: 0xF4000
   end_address: 0xFC000
   region: flash_primary
   size: 0x8000
-settings_storage:
+nvs:
   address: 0xFC000
   end_address: 0xFE000
   region: flash_primary
