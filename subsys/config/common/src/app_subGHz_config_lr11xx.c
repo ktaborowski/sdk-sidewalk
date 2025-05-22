@@ -127,16 +127,18 @@ static radio_lr11xx_device_config_t radio_lr11xx_cfg =
 
 	.wakeup_delay_us = 0,
 	.lfclock_cfg = LR11XX_SYSTEM_LFCLK_RC,
-#if defined(LR1110)
+#if defined(CONFIG_SIDEWALK_RADIO_LR11XX)
 	.tcxo_config = {
 		.ctrl = LR11XX_TCXO_CTRL_DIO3,
 		.tune = LR11XX_SYSTEM_TCXO_CTRL_3_3V,
 		.timeout = 10 // 20 //200
 	},
-#elif defined(LR1121)
-	.tcxo_config = {
-		.ctrl                   = LR11XX_TCXO_CTRL_NONE,
-	},
+/* TODO: Add LR1121 config 
+ * #elif defined(CONFIG_SIDEWALK_RADIO_LR1121) 
+ * 	.tcxo_config = {
+ * 		.ctrl                   = LR11XX_TCXO_CTRL_NONE,
+ * 	},
+ * END TODO */
 #else
     #error not_LR1110_or_LR1121
 #endif
@@ -190,32 +192,32 @@ static radio_lr11xx_device_config_t radio_lr11xx_cfg =
 const radio_lr11xx_device_config_t *get_radio_cfg(void)
 {
 	radio_lr11xx_cfg.gpios.power =
-		sid_gpio_utils_get_gpio_number_dt(
+		sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_reset_gpios), gpios, INVALID_DT_GPIO));
 	radio_lr11xx_cfg.gpios.int1 =
-		sid_gpio_utils_get_gpio_number_dt(
+		sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_dio1_gpios), gpios, INVALID_DT_GPIO));
 	radio_lr11xx_cfg.gpios.radio_busy =
-		sid_gpio_utils_get_gpio_number_dt(
+		sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_busy_gpios), gpios, INVALID_DT_GPIO));
 	radio_lr11xx_cfg.gpios.rf_sw_ena =
-		sid_gpio_utils_get_gpio_number_dt(
+		sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_antenna_enable_gpios),
 							      gpios, INVALID_DT_GPIO));
 	radio_lr11xx_cfg.bus_selector.client_selector =
-		sid_gpio_utils_get_gpio_number_dt(
+		sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_cs), gpios, INVALID_DT_GPIO));
 	radio_lr11xx_cfg.bus_selector.speed_hz = DT_PROP_OR(DT_NODELABEL(sid_semtech), clock_frequency, SPI_FREQUENCY_DEFAULT);
 
-	radio_lr11xx_cfg.gpios.tx_bypass = sid_gpio_utils_get_gpio_number_dt(
+	radio_lr11xx_cfg.gpios.tx_bypass = sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(semtech_sx1262_tx_bypass), gpios, INVALID_DT_GPIO));
-	radio_lr11xx_cfg.gpios.led_tx = sid_gpio_utils_get_gpio_number_dt(
+	radio_lr11xx_cfg.gpios.led_tx = sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(radio_led_tx), gpios, INVALID_DT_GPIO));
-	radio_lr11xx_cfg.gpios.led_rx = sid_gpio_utils_get_gpio_number_dt(
+	radio_lr11xx_cfg.gpios.led_rx = sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(radio_led_rx), gpios, INVALID_DT_GPIO));
-	radio_lr11xx_cfg.gpios.gnss_lna = sid_gpio_utils_get_gpio_number_dt(
+	radio_lr11xx_cfg.gpios.gnss_lna = sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(radio_gnss_lna), gpios, INVALID_DT_GPIO));
-	radio_lr11xx_cfg.gpios.led_sniff = sid_gpio_utils_get_gpio_number_dt(
+	radio_lr11xx_cfg.gpios.led_sniff = sid_gpio_utils_register_gpio(
 			(struct gpio_dt_spec)GPIO_DT_SPEC_GET_OR(DT_NODELABEL(radio_led_sniff), gpios, INVALID_DT_GPIO));
 
 	radio_lr11xx_cfg.gnss_scan.post_hook = on_gnss_scan_done;
@@ -238,7 +240,7 @@ const struct sid_sub_ghz_links_config sub_ghz_link_config = {
 	},
 };
 
-const struct sid_sub_ghz_links_config *app_get_sub_ghz_config(void)
+struct sid_sub_ghz_links_config *app_get_sub_ghz_config(void)
 {
 	return &sub_ghz_link_config;
 }

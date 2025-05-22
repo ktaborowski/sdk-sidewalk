@@ -190,8 +190,22 @@ config SIDEWALK_PAL_RADIO_SOURCE
 	bool "Build sub-GHz radio driver from sources [EXPERIMENTAL]"
 	select EXPERIMENTAL
 
-if SIDEWALK_SPI_BUS && !BOARD_WIO_TRACKER_1110
+choice SIDEWALK_RADIO
+	prompt "Select the radio device"
+	default SIDEWALK_RADIO_SX126X
+	help
+	  Select the radio device.
 
+config SIDEWALK_RADIO_SX126X
+	bool "SX126x"
+
+config SIDEWALK_RADIO_LR11XX
+	bool "LR11xx"
+	select EXPERIMENTAL
+
+endchoice # SIDEWALK_RADIO
+
+if SIDEWALK_SPI_BUS && !BOARD_WIO_TRACKER_1110
 choice SIDEWALK_NRFX_SPI_INSTANCE_ID
 	prompt "Instance of the NRX SPI driver"
 	depends on SOC_NRF52840
