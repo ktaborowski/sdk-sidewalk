@@ -5,9 +5,6 @@
 #
 
 if(CONFIG_SIDEWALK_BUILD)
-    if (CONFIG_SIDEWALK_USE_PREBUILTS)
-        add_subdirectory(lib)
-    endif()
     add_subdirectory(subsys)
     add_subdirectory(utils)
 endif()
