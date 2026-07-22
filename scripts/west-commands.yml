@@ -1,0 +1,7 @@
+# Keep the help strings in sync with the values in the .py files!
+west-commands:
+  - file: scripts/west_commands/provision.py
+    commands:
+      - name: provision
+        class: Provision
+        help: provision a Nordic Sidewalk device (AWS + MFG page)

@@ -23,6 +23,46 @@ Provisioning
 
 The tools required for provisioning are located in the repository (`sdk-nrf`_ and `sdk-sidewalk`_) under the :file:`sidewalk/tools/provision` path.
 
+West provision command
+======================
+
+For development, you can provision a device with a single west command after installing Python dependencies:
+
+.. code-block:: console
+
+   pip install -r sidewalk/requirements.txt
+
+The command creates AWS IoT Wireless resources (IAM role, destination, device profile, wireless device), generates an MFG hex file, and optionally flashes the manufacturing page.
+Application firmware must still be built and flashed separately with ``west build`` and ``west flash``.
+
+.. code-block:: console
+
+   west provision -b nrf54l15dk/nrf54l15/cpuapp --flash
+
+List cached devices and reflash by wireless device ID:
+
+.. code-block:: console
+
+   west provision --list-devices
+   west provision --device-id <wireless_device_id> --flash
+
+Supported boards match ``west build -b`` targets, including legacy ``nrf52840dk/nrf52840``.
+
+AWS authentication uses the standard credential chain (``~/.aws/credentials`` or environment variables).
+For IAM Identity Center (SSO) profiles, the command runs ``aws sso login`` when credentials are missing or expired.
+
+Minimum IAM permissions for automatic resource creation:
+
+* IoT Wireless: create/get destination, device profile, and wireless device
+* IAM: create role and inline policy for the destination publish role
+
+For development only, ``AWSIoTWirelessFullAccess`` and ``IAMFullAccess`` are sufficient.
+
+If you reflash MFG data on a device that was already registered, factory-reset the device first (long-press **Button 0** on the DK).
+
+Manual provisioning
+===================
+
 .. note::
    You can use the ``--output_hex`` parameter to specify a custom name for the output hex file.
    This change is optional and does not affect the file's compatibility with other supported boards.

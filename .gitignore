@@ -31,6 +31,7 @@ sanity-out*
 twister-out*
 map.yml
 hardware-map.yaml*
+.sidewalk/
 coverage.info
 
 doc/_build

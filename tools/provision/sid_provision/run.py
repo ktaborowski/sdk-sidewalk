@@ -1367,6 +1367,14 @@ PLATFORM_ADDRESS_ARG = SidArgument(
     additional_help=get_additional_addr_help,
 )
 
+BOARD_ARG = SidArgument(
+    name="--board",
+    intype=str,
+    required=False,
+    default=None,
+    help="West board name (sets --chip and --addr automatically)",
+)
+
 COMMANDER_BIN_ARG = SidArgument(
     name="--commander-bin",
     intype=str,
@@ -1461,10 +1469,15 @@ ARG_GROUPS = [
             BB_INPUT_GROUP_FORMAT,
             AWS_INPUT_GROUP_FORMAT,
         ],
-        addtional_input_args=[PROVISION_CONFIG_FILE_ARG, PLATFORM_ADDRESS_ARG],
+        addtional_input_args=[PROVISION_CONFIG_FILE_ARG, PLATFORM_ADDRESS_ARG, BOARD_ARG],
         output_args=[OUTPUT_BIN_ARG, OUTPUT_HEX_ARG],
         config_file=Path("config/nordic/nrf528xx_dk/config.yaml"),
-        chips=[SidChipAddr(name="nrf52840", offset_addr=0xFD000, default=True)],
+        chips=[
+            SidChipAddr(name="nrf52840", offset_addr=0xFD000),
+            SidChipAddr(name="nrf54l10", offset_addr=0xFC000),
+            SidChipAddr(name="nrf54l15", offset_addr=0x17C000, default=True),
+            SidChipAddr(name="nrf54lm20", offset_addr=0x1DE000),
+        ],
     ),
     SidPlatformArgs(
         platform=SidSupportedPlatform.TI,
@@ -1631,6 +1644,14 @@ def main() -> None:
 
     if args.dump_raw_values:
         print(sid_mfg)
+
+    if getattr(args, "board", None):
+        from sid_provision.boards import get_board_config
+
+        board_cfg = get_board_config(args.board)
+        args.chip = board_cfg.chip
+        if not getattr(args, "addr", None):
+            args.addr = board_cfg.mfg_addr
 
     # Create chip address
     chip_addr = [_ for _ in platform_group.chips if args.chip == _.name ]

@@ -1,2 +1,3 @@
 -r scripts/ci/requirements.txt
+-r scripts/requirements-west.txt
 -r tools/provision/requirements.txt
