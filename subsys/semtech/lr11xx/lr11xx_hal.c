@@ -23,6 +23,12 @@
 #include "lr11xx_radio.h"
 #include "lr11xx_hal.h"
 
+/* DBG-SCAN: temporary instrumentation for Wi-Fi scan hand-over investigation */
+#include <zephyr/kernel.h>
+
+/* PROOF: comment out to get the unpatched behaviour back with the same instrumentation */
+#define PROOF_SLEEP_FLAG
+
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE MACROS-----------------------------------------------------------
@@ -220,7 +226,19 @@ lr11xx_hal_status_t lr11xx_hal_wakeup( const void* context )
 
     if (!_read_busy(drv_ctx)) {
       SL_SID_LOG_APP_WARNING(BRED "hal_wakeup busy low"COLOR_RESET);
+#ifdef PROOF_SLEEP_FLAG
+      /* PROOF: BUSY low means the chip is already awake. Pulsing NSS now is seen by the
+       * LR11xx as a zero-length command and answered with CMD_PERR, which the next real
+       * command then reports as its own failure. Just resynchronise the flag. */
+      drv_ctx->sleeping = false;
+      return LR11XX_HAL_STATUS_OK;
+#endif /* PROOF_SLEEP_FLAG */
     }
+
+    /* DBG-SCAN */
+    SL_SID_LOG_APP_WARNING("DBG wakeup: state %d sleeping %u last cmd 0x%04X int1 %u thr %p",
+                           (int)drv_ctx->radio_state, (unsigned)drv_ctx->sleeping, drv_ctx->last.command,
+                           (unsigned)_read_int1(drv_ctx), k_current_get());
 
     if (!drv_ctx->config->bus_selector.client_selector_cb) {
         if (sid_pal_gpio_set_direction(drv_ctx->config->bus_selector.client_selector, SID_PAL_GPIO_DIRECTION_OUTPUT)
@@ -389,9 +407,31 @@ static lr11xx_hal_status_t lr11xx_hal_rdwr( const halo_drv_semtech_ctx_t* contex
         max_wait_us = SEMTECH_BOOTLOADER_MAX_WAIT_ON_BUSY_CNT_US;
     if( lr11xx_wait_on_busy( drv_ctx, max_wait_us ) != SID_ERROR_NONE )
     {
+#ifdef PROOF_SLEEP_FLAG
+        /* PROOF: BUSY stuck high while drv_ctx->sleeping is false means the chip is asleep and
+         * a concurrent context cleared the shared flag. Wake it up and retry once. */
+        if( _read_busy( drv_ctx ) )
+        {
+            SL_SID_LOG_APP_WARNING( "PROOF: lost wakeup on 0x%02X%02X, waking up", command[0], command[1] );
+            /* lr11xx_hal_wakeup() no-ops unless the driver believes the chip is asleep */
+            drv_ctx->sleeping = true;
+            ( void ) lr11xx_hal_wakeup( drv_ctx );
+            if( lr11xx_wait_on_busy( drv_ctx, max_wait_us ) == SID_ERROR_NONE )
+            {
+                goto bus_ready;
+            }
+        }
+#endif /* PROOF_SLEEP_FLAG */
         SL_SID_LOG_APP_ERROR( BYEL "rdwr start wait_on_busy 0x%02X%02X, waited %u"COLOR_RESET, command[0], command[1], max_wait_us );
+        /* DBG-SCAN: sleeping==0 while BUSY stays high means the chip is asleep and the driver lost track */
+        SL_SID_LOG_APP_ERROR( "DBG busy-timeout: state %d sleeping %u last cmd 0x%04X busy %u int1 %u thr %p",
+                              (int)drv_ctx->radio_state, (unsigned)drv_ctx->sleeping, drv_ctx->last.command,
+                              (unsigned)_read_busy(drv_ctx), (unsigned)_read_int1(drv_ctx), k_current_get() );
         return LR11XX_HAL_STATUS_ERROR;
     }
+#ifdef PROOF_SLEEP_FLAG
+bus_ready:
+#endif /* PROOF_SLEEP_FLAG */
 
 #ifdef LOCAL_DEBUG
     SID_HAL_LOG_INFO( "-----------------------------" );
@@ -437,6 +477,10 @@ static lr11xx_hal_status_t lr11xx_hal_rdwr( const halo_drv_semtech_ctx_t* contex
 			/* section 3.4.2: bit0 = interrupt status */
 			SL_SID_LOG_APP_WARNING( "during 0x%02X%02X, Command 0x%.4X failed; Stat1 0x%.2X int1:%d Stat2 0x%.2X ", command[0], command[1],
 							 drv_ctx->last.command, drv_ctx->last.stat1, _read_int1(drv_ctx), drv_ctx->last.stat2);
+			/* DBG-SCAN: the error belongs to the previous command, yet it is returned to the current caller */
+			SL_SID_LOG_APP_WARNING( "DBG stale-status: reported to caller of 0x%02X%02X, state %d sleeping %u thr %p",
+							 command[0], command[1], (int)drv_ctx->radio_state, (unsigned)drv_ctx->sleeping,
+							 k_current_get() );
 			drv_ctx->last.failedCommand = drv_ctx->last.command;
 			ret = LR11XX_HAL_STATUS_ERROR;
 		}

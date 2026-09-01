@@ -29,6 +29,12 @@
 
 #include <sid_pal_critical_region_ifc.h>
 
+/* DBG-SCAN: temporary instrumentation for Wi-Fi scan hand-over investigation */
+#include <zephyr/kernel.h>
+
+/* PROOF: comment out to get the unpatched behaviour back with the same instrumentation */
+#define PROOF_STALE_STATUS
+
 /*
  * -----------------------------------------------------------------------------
  * --- PRIVATE MACROS-----------------------------------------------------------
@@ -156,6 +162,33 @@ static void lr_timer_cb( void* arg, sid_pal_timer_t* owner );
 halo_drv_semtech_ctx_t* lr11xx_get_drv_ctx( void )
 {
     return &drv_ctx;
+}
+
+/* DBG-SCAN: dump cached driver bookkeeping - no SPI traffic, no side effects */
+static void dbg_scan_cached( const char* tag )
+{
+    SL_SID_LOG_APP_WARNING( "DBG %s: last cmd 0x%04X stat1 0x%02X stat2 0x%02X | sleeping %u state %d thr %p", tag,
+                            drv_ctx.last.command, drv_ctx.last.stat1, drv_ctx.last.stat2,
+                            ( unsigned ) drv_ctx.sleeping, ( int ) drv_ctx.radio_state, k_current_get( ) );
+}
+
+/* DBG-SCAN: read live chip status. Note: direct read clears drv_ctx.last.command */
+static void dbg_scan_status( const char* tag )
+{
+    lr11xx_system_stat1_t    stat1 = { 0 };
+    lr11xx_system_stat2_t    stat2 = { 0 };
+    lr11xx_system_irq_mask_t irq   = 0;
+
+    if( lr11xx_system_get_status( &drv_ctx, &stat1, &stat2, &irq, tag ) != LR11XX_STATUS_OK )
+    {
+        SL_SID_LOG_APP_ERROR( "DBG %s: get_status fail", tag );
+        return;
+    }
+    SL_SID_LOG_APP_WARNING( "DBG %s: irq 0x%08X cmd_stat %u int_act %u chip_mode %u rst %u | sleeping %u state %d thr %p",
+                            tag, ( unsigned ) irq, ( unsigned ) stat1.command_status,
+                            ( unsigned ) stat1.is_interrupt_active, ( unsigned ) stat2.chip_mode,
+                            ( unsigned ) stat2.reset_status, ( unsigned ) drv_ctx.sleeping,
+                            ( int ) drv_ctx.radio_state, k_current_get( ) );
 }
 
 int32_t set_radio_int( const halo_drv_semtech_ctx_t* drv_ctx, bool int_enable )
@@ -804,8 +837,11 @@ int32_t sid_pal_radio_sleep( uint32_t sleep_us )
             set_radio_int( &drv_ctx, false );
         }
 
+        dbg_scan_status( "presleep" ); /* DBG-SCAN */
+
         if( lr11xx_system_set_sleep( &drv_ctx, cfg, INFINITE_TIME ) != LR11XX_STATUS_OK )
         {
+            SL_SID_LOG_APP_ERROR( "DBG set_sleep returned error" ); /* DBG-SCAN */
             err = RADIO_ERROR_HARDWARE_ERROR;
             if( drv_ctx.config->mitigations.irq_noise_during_sleep )
             {
@@ -1829,10 +1865,24 @@ int sid_pal_radio_hold_scan()
     if( sid_pal_gpio_read( drv_ctx.config->gpios.int1, &pinState ) == SID_ERROR_NONE ) {
 		if (pinState) {
 			SL_SID_LOG_APP_WARNING(BYEL "hold scan: int1 high"COLOR_RESET);
+            dbg_scan_cached("hold-int1-high"); /* DBG-SCAN */
             SL_SID_LOG_APP_INFO("Clearing irq");
             if(radio_clear_irq_status_all()){
+#ifdef PROOF_STALE_STATUS
+                /* PROOF: radio_clear_irq_status_all() reports LR11XX_HAL_STATUS_ERROR whenever the
+                 * *previous* command status was not OK, even when ClearIrq itself was accepted.
+                 * Trust the INT1 pin instead of the deferred status of an unrelated command. */
+                pinState = 1;
+                (void)sid_pal_gpio_read(drv_ctx.config->gpios.int1, &pinState);
+                if (pinState) {
+                    SL_SID_LOG_APP_ERROR(BYEL "Failed to clear IRQ, int1 still high");
+                    return -1;
+                }
+                SL_SID_LOG_APP_WARNING("PROOF: stale status on ClearIrq ignored, int1 low");
+#else
                 SL_SID_LOG_APP_ERROR(BYEL "Failed to clear IRQ");
                 return -1;
+#endif /* PROOF_STALE_STATUS */
             }
 		}
 	} else {
@@ -1876,7 +1926,11 @@ void sid_pal_radio_release_scan()
 	}
 	sid_pal_exit_critical_region();
 
+	dbg_scan_status("prerelease"); /* DBG-SCAN */
+
 	lr11xx_restore_transceiver();
+
+	dbg_scan_cached("postrestore"); /* DBG-SCAN */
 
 	sid_pal_enter_critical_region();
 	drv_ctx.radio_state = SID_PAL_RADIO_STANDBY; // crit
