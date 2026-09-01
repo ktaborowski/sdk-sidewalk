@@ -61,6 +61,14 @@ The following table summarizes the supported variants, development kits, and bui
        * :ref:`nRF Sidewalk EB <nrf_sidewalk_eb>` on `nRF54LM20 DK`_ (LoRa/FSK)
      - MCUboot — DFU partition in external flash on `nRF52840 DK`_ and nRF54L10 emulated on `nRF54L15 DK`_
      - ``overlay-dut.conf``
+   * - :ref:`variant_sidewalk_location`
+     - Application that periodically reports the device location to the Sidewalk cloud.
+     - * `nRF54L15 DK`_
+       * `nRF54LM20 DK`_
+     - * LR1110MB1xxS on `nRF54L15 DK`_ (Wi-Fi and GNSS location)
+       * :ref:`nRF Sidewalk EB <nrf_sidewalk_eb>` on `nRF54L15 DK`_ and `nRF54LM20 DK`_ (Wi-Fi and GNSS location)
+     - MCUboot
+     - ``overlay-location.conf``
 
 For variant-specific build, test, and configuration details, see :ref:`sidewalk_end_device`.
 

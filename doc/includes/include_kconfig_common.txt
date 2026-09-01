@@ -7,6 +7,8 @@
      For more details, see the :ref:`variant_sensor_monitoring` page.
    * ``CONFIG_SID_END_DEVICE_DUT`` -- Enables the Sidewalk device under test application.
      For more details, see the :ref:`variant_sidewalk_dut` page.
+   * ``CONFIG_SID_END_DEVICE_LOCATION`` -- Enables the Sidewalk location demo application.
+     For more details, see the :ref:`variant_sidewalk_location` page.
 
 * ``CONFIG_SID_END_DEVICE_CLI`` -- Enables Sidewalk CLI.
   To see the list of available commands, flash the sample and type ``sid help``.
@@ -25,3 +27,5 @@
    * ``CONFIG_SID_END_DEVICE_LINK_MASK_FSK`` -- Choose Sub-GHz link for FSK.
 
    * ``CONFIG_SID_END_DEVICE_LINK_MASK_LORA`` -- Choose Sub-GHz link for LORA.
+
+   * ``CONFIG_SID_END_DEVICE_LINK_MASK_BLE_LORA`` -- Choose Bluetooth Low Energy and Sub-GHz link for LORA.

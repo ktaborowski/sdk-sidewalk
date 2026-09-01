@@ -18,6 +18,12 @@ config SID_END_DEVICE_SENSOR_MONITORING
 	imply TEMP_NRF5
 config SID_END_DEVICE_DUT
 	bool "Device under test application"
+config SID_END_DEVICE_LOCATION
+	bool "Sidewalk location demo application"
+	help
+	  Application that starts Sidewalk automatically and, once the device is
+	  registered and time synced, periodically resolves and uplinks its
+	  location with the Sidewalk location library.
 endchoice #SID_END_DEVICE
 
 if SID_END_DEVICE_HELLO
@@ -36,6 +42,46 @@ if SID_END_DEVICE_SENSOR_MONITORING
 rsource "Kconfig.sensor_monitoring"
 
 endif #SID_END_DEVICE_SENSOR_MONITORING
+
+if SID_END_DEVICE_LOCATION
+
+config SID_END_DEVICE_LOCATION_INTERVAL_S
+	int "Location uplink interval in seconds"
+	range 10 86400
+	default 60
+	help
+	  Period between consecutive location scan and uplink attempts.
+	  The first attempt is triggered as soon as the device is registered,
+	  time synced and ready. A cycle is skipped if the previous location run
+	  has not finished yet.
+
+choice SID_END_DEVICE_LOCATION_EFFORT
+	prompt "Location effort mode"
+	default SID_END_DEVICE_LOCATION_EFFORT_L3 if SIDEWALK_SUBGHZ_RADIO_LR1110_LOCATION || SIDEWALK_NRF7X_LOCATION
+	default SID_END_DEVICE_LOCATION_EFFORT_L1
+	help
+	  Effort mode requested for every location run. Level 2 (LoRa
+	  triangulation) is not supported by the Sidewalk location library.
+
+config SID_END_DEVICE_LOCATION_EFFORT_L1
+	bool "L1 - Sidewalk network location over Bluetooth LE"
+
+config SID_END_DEVICE_LOCATION_EFFORT_L3
+	bool "L3 - Wi-Fi scan"
+
+config SID_END_DEVICE_LOCATION_EFFORT_L4
+	bool "L4 - GNSS scan"
+
+endchoice # SID_END_DEVICE_LOCATION_EFFORT
+
+config SID_END_DEVICE_LOCATION_MANAGE_EFFORT
+	bool "Manage the location effort mode"
+	default y
+	help
+	  Let the location library step down to a lower effort mode when the
+	  requested one is unavailable or fails.
+
+endif #SID_END_DEVICE_LOCATION
 
 config SID_END_DEVICE_CLI
 	bool "Sidewalk CLI (DUT)"
@@ -83,6 +129,7 @@ config SID_END_DEVICE_PERSISTENT_LINK_MASK
 
 choice SID_END_DEVICE_LINK_MASK
 	prompt "Physical link type"
+	default SID_END_DEVICE_LINK_MASK_BLE_LORA if SID_END_DEVICE_LOCATION && SIDEWALK_SUBGHZ_SUPPORT
 	default SID_END_DEVICE_LINK_MASK_FSK if SIDEWALK_LINK_MASK_FSK
 	default SID_END_DEVICE_LINK_MASK_LORA if SIDEWALK_LINK_MASK_LORA
 	default SID_END_DEVICE_LINK_MASK_BLE if SIDEWALK_LINK_MASK_BLE
@@ -98,6 +145,10 @@ config SID_END_DEVICE_LINK_MASK_FSK
 
 config SID_END_DEVICE_LINK_MASK_LORA
 	bool "Sub-GHz link for LORA"
+
+config SID_END_DEVICE_LINK_MASK_BLE_LORA
+	bool "Bluetooth Low Energy and Sub-GHz link for LORA"
+	depends on SIDEWALK_SUBGHZ_SUPPORT
 
 endchoice # SID_END_DEVICE_LINK_MASK
 

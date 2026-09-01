@@ -38,6 +38,10 @@ elseif(CONFIG_SID_END_DEVICE_DUT)
     target_sources(app PRIVATE
         src/cli/app.c
     )
+elseif(CONFIG_SID_END_DEVICE_LOCATION)
+    target_sources(app PRIVATE
+        src/location/app.c
+    )
 else()
     target_sources(app PRIVATE
         src/hello/app.c

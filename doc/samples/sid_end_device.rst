@@ -192,6 +192,7 @@ Testing application scenarios differ depending on the selected Sidewalk configur
 * ``overlay-demo`` -- Use this configuration to run the Sensor monitoring variant.
 * ``overlay-dut`` -- Use this configuration to run the Device under test (DUT) variant.
   The overlay enables CLI and disables sample automation.
+* ``overlay-location`` -- Use this configuration to run the Location demo variant.
 
 You can build an end device application with the selected overlay by running the following command in the project directory:
 
@@ -215,3 +216,4 @@ See the details on running and testing individual variants, as well as enabling 
    variants/hello.rst
    variants/sensor_monitoring.rst
    variants/dut.rst
+   variants/location.rst

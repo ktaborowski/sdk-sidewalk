@@ -295,6 +295,31 @@ tests:
       - cli
       - BLE
 
+  sample.sidewalk.location.nrf_sidewalk_eb:
+    integration_platforms:
+      - nrf54l15dk/nrf54l15/cpuapp
+    platform_exclude:
+      - nrf52840dk/nrf52840
+      - nrf54l15dk/nrf54l15/cpuapp/ns
+      - nrf54l15dk/nrf54l10/cpuapp
+    platform_allow:
+      - nrf54lm20dk/nrf54lm20a/cpuapp
+      - nrf54lm20dk/nrf54lm20b/cpuapp
+    build_only: false
+    extra_args:
+      - OVERLAY_CONFIG="overlay-location.conf"
+      - SHIELD="nrf_sidewalk_eb"
+    extra_configs:
+      - CONFIG_SIDEWALK_APPLICATION_NAME="location"
+    harness: console
+    harness_config:
+      type: multi_line
+      regex:
+        - ".*Booting Sidewalk.*"
+    tags:
+      - location
+      - lr1110
+
   sample.sidewalk.helloPower.ble.release:
     integration_platforms:
       - nrf54l15dk/nrf54l15/cpuapp

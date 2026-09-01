@@ -103,8 +103,9 @@ At this level, the device uses satellite data for location.
 Testing
 *******
 
-The Sidewalk location feature is implemented in the DUT application.
-For testing instructions, see :ref:`variant_sidewalk_dut_test_location`.
+The Sidewalk location feature is implemented in the DUT and the Location demo applications.
+For testing instructions, see :ref:`variant_sidewalk_dut_test_location` for the shell-driven DUT variant,
+and :ref:`variant_sidewalk_location` for the variant that reports the location periodically without user interaction.
 
 Sidewalk libraries
 ==================
