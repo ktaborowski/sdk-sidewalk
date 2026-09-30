@@ -340,14 +340,18 @@ static const struct bt_uuid *uuid_vnd_service = VND_SID_BT_CHARACTERISTIC_NOTIFY
 #endif /* CONFIG_SIDEWALK_VENDOR_SERVICE */
 #if defined(CONFIG_SIDEWALK_LOGGING_SERVICE)
 static const struct bt_uuid *uuid_log_service = LOG_SID_BT_CHARACTERISTIC_NOTIFY;
-#endif /* CONFIG_SIDEWALK_VENDOR_SERVICE */
+#endif /* CONFIG_SIDEWALK_LOGGING_SERVICE */
 
 static sid_ble_srv_params_t get_srv_params(sid_ble_cfg_service_identifier_t id)
 {
+	/* The connection data is NULL after deinit. */
+	const sid_ble_conn_data_t *conn_data = sid_ble_conn_data_get();
+	struct bt_conn *conn = conn_data ? conn_data->conn : NULL;
+
 	switch (id) {
 	case AMA_SERVICE:
 		return (sid_ble_srv_params_t){
-			.conn = sid_ble_conn_data_get()->conn,
+			.conn = conn,
 			.service = (struct bt_gatt_service_static *)sid_ble_get_ama_service(),
 			.uuid = uuid_ama_service
 		};
@@ -355,7 +359,7 @@ static sid_ble_srv_params_t get_srv_params(sid_ble_cfg_service_identifier_t id)
 #if defined(CONFIG_SIDEWALK_VENDOR_SERVICE)
 	case VENDOR_SERVICE:
 		return (sid_ble_srv_params_t){
-			.conn = sid_ble_conn_params_get()->conn,
+			.conn = conn,
 			.service = (struct bt_gatt_service_static *)sid_ble_get_vnd_service(),
 			.uuid = uuid_vnd_service
 		};
@@ -363,7 +367,7 @@ static sid_ble_srv_params_t get_srv_params(sid_ble_cfg_service_identifier_t id)
 #if defined(CONFIG_SIDEWALK_LOGGING_SERVICE)
 	case LOGGING_SERVICE:
 		return (sid_ble_srv_params_t){
-			.conn = sid_ble_conn_params_get()->conn,
+			.conn = conn,
 			.service = (struct bt_gatt_service_static *)sid_ble_get_log_service(),
 			.uuid = uuid_log_service
 		};

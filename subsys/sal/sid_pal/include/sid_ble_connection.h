@@ -42,9 +42,12 @@ void sid_ble_conn_deinit(void);
 const sid_ble_conn_data_t *sid_ble_conn_data_get(void);
 
 /**
- * @brief Request LE connection parameter update.
+ * @brief Get LE connection parameters.
  *
- * @param param Requested connection parameters.
+ * Returns the parameters of the active Sidewalk connection. Without a connection, returns the
+ * parameters of the last closed one.
+ *
+ * @param param Output for the connection parameters.
  * @return Zero on success or (negative) error code on failure.
  */
 int sid_ble_conn_param_get(struct bt_le_conn_param *param);

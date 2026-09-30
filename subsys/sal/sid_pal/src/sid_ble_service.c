@@ -38,6 +38,10 @@ int sid_ble_send_data(sid_ble_srv_params_t *params, uint8_t *data, uint16_t leng
 		return -ENOENT;
 	}
 
+	if (!params->conn) {
+		return -ENOTCONN;
+	}
+
 	if (NULL != params->service) {
 		srv_attrs = params->service->attrs;
 		srv_attr_count = params->service->attr_count;
