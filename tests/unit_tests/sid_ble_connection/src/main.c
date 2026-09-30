@@ -59,17 +59,8 @@ typedef struct {
 static connection_callback_test_t conn_cb_test;
 static struct bt_conn_cb *sid_bt_conn_cb;
 static struct bt_gatt_cb *sid_bt_gatt_cb;
-
-static void before_test(void *fixture)
-{
-	ARG_UNUSED(fixture);
-
-	FFF_FAKES_LIST(RESET_FAKE);
-	FFF_RESET_HISTORY();
-	memset(&conn_cb_test, 0x00, sizeof(conn_cb_test));
-}
-
-ZTEST_SUITE(sid_ble_connection, NULL, NULL, before_test, NULL, NULL);
+static size_t conn_cb_register_count;
+static size_t gatt_cb_register_count;
 
 static void connection_callback_connected(const uint8_t *ble_addr)
 {
@@ -109,19 +100,103 @@ static int bt_conn_get_info_fake_error(const struct bt_conn *a, struct bt_conn_i
 	return -ENOTCONN;
 }
 
+static int ref_balance;
+static const struct bt_conn *foreign_conn;
+static struct bt_conn conn_a = { .dummy = 0xA1 };
+static struct bt_conn conn_b = { .dummy = 0xB2 };
+static const bt_addr_le_t addr_a = {
+	.type = BT_ADDR_LE_RANDOM,
+	.a = { { 0xA6, 0xA5, 0xA4, 0xA3, 0xA2, 0xA1 } },
+};
+static const bt_addr_le_t addr_b = {
+	.type = BT_ADDR_LE_RANDOM,
+	.a = { { 0xB6, 0xB5, 0xB4, 0xB3, 0xB2, 0xB1 } },
+};
+
+static struct bt_conn *bt_conn_ref_tracked(struct bt_conn *conn)
+{
+	ref_balance++;
+	return conn;
+}
+
+static void bt_conn_unref_tracked(struct bt_conn *conn)
+{
+	ARG_UNUSED(conn);
+	ref_balance--;
+}
+
+static int bt_conn_get_info_fake_by_conn(const struct bt_conn *a, struct bt_conn_info *b)
+{
+	b->id = (a == foreign_conn) ? BT_ID_DEFAULT : BT_ID_SIDEWALK;
+	return 0;
+}
+
+static const bt_addr_le_t *bt_conn_get_dst_fake_by_conn(const struct bt_conn *conn)
+{
+	return (conn == &conn_b) ? &addr_b : &addr_a;
+}
+
+/* Per-connection identity and address fakes, plus bt_conn reference accounting. */
+static void multi_conn_fakes_install(void)
+{
+	bt_conn_ref_fake.custom_fake = bt_conn_ref_tracked;
+	bt_conn_unref_fake.custom_fake = bt_conn_unref_tracked;
+	bt_conn_get_info_fake.custom_fake = bt_conn_get_info_fake_by_conn;
+	bt_conn_get_dst_fake.custom_fake = bt_conn_get_dst_fake_by_conn;
+}
+
+static void *suite_setup(void)
+{
+	/* The module registers its callbacks only once, also across suite repeats. */
+	if (!sid_bt_conn_cb) {
+		sid_ble_conn_init();
+		conn_cb_register_count = bt_conn_cb_register_fake.call_count;
+		gatt_cb_register_count = bt_gatt_cb_register_fake.call_count;
+		sid_bt_conn_cb = bt_conn_cb_register_fake.arg0_val;
+		sid_bt_gatt_cb = bt_gatt_cb_register_fake.arg0_val;
+	}
+
+	return NULL;
+}
+
+static void before_test(void *fixture)
+{
+	const sid_ble_conn_data_t *data = NULL;
+
+	ARG_UNUSED(fixture);
+
+	/* Drop any connection left in the module's static slot by the previous test. */
+	sid_ble_conn_init();
+	data = sid_ble_conn_data_get();
+	if (data->conn) {
+		RESET_FAKE(bt_conn_get_info);
+		bt_conn_get_info_fake.custom_fake = bt_conn_get_info_fake1;
+		sid_bt_conn_cb->disconnected(data->conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+		zassert_is_null(data->conn, "Leftover connection not cleared");
+	}
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+	memset(&conn_cb_test, 0x00, sizeof(conn_cb_test));
+	ref_balance = 0;
+	foreign_conn = NULL;
+}
+
+ZTEST_SUITE(sid_ble_connection, NULL, suite_setup, before_test, NULL, NULL);
+
 ZTEST(sid_ble_connection, test_01_sid_ble_conn_init)
 {
-	sid_ble_conn_init();
-	zassert_equal(bt_conn_cb_register_fake.call_count, 1);
-	zassert_equal(bt_gatt_cb_register_fake.call_count, 1);
-
-	sid_bt_conn_cb = bt_conn_cb_register_fake.arg0_history[0];
+	zassert_equal(conn_cb_register_count, 1);
+	zassert_equal(gatt_cb_register_count, 1);
 	zassert_not_null(sid_bt_conn_cb);
 	zassert_not_null(sid_bt_conn_cb->connected);
 	zassert_not_null(sid_bt_conn_cb->disconnected);
-	sid_bt_gatt_cb = bt_gatt_cb_register_fake.arg0_history[0];
 	zassert_not_null(sid_bt_gatt_cb);
 	zassert_not_null(sid_bt_gatt_cb->att_mtu_updated);
+
+	sid_ble_conn_init();
+	zassert_equal(bt_conn_cb_register_fake.call_count, 0, "Callbacks registered again");
+	zassert_equal(bt_gatt_cb_register_fake.call_count, 0, "Callbacks registered again");
 }
 
 ZTEST(sid_ble_connection, test_02_sid_ble_conn_data_get)
@@ -304,6 +379,8 @@ ZTEST(sid_ble_connection, test_08_sid_ble_conn_mtu_callback)
 	struct bt_conn test_conn = { .dummy = 0xDC };
 
 	sid_ble_conn_init();
+	/* ATT reports the initial MTU before the connected callback runs. */
+	bt_conn_get_info_fake.custom_fake = bt_conn_get_info_fake1;
 
 	uint16_t tx_mtu = 32, rx_mtu = 44;
 
@@ -343,16 +420,6 @@ ZTEST(sid_ble_connection, test_10_sid_ble_conn_disconnect)
 		.a = { { 0x06, 0x05, 0x04, 0x03, 0x02, 0x01 } },
 	};
 
-	sid_ble_conn_init();
-	const sid_ble_conn_data_t *data = sid_ble_conn_data_get();
-	if (data != NULL && data->conn != NULL) {
-		int (*get_info_fakes[])(const struct bt_conn *, struct bt_conn_info *) = {
-			bt_conn_get_info_fake1,
-			bt_conn_get_info_fake1,
-		};
-		SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, get_info_fakes, 2);
-		sid_bt_conn_cb->disconnected(data->conn, 0);
-	}
 	sid_ble_conn_deinit();
 	sid_ble_conn_init();
 
@@ -474,4 +541,183 @@ ZTEST(sid_ble_connection, test_13_sid_ble_conn_param_update)
 	bt_conn_le_param_update_fake.return_val = -EINVAL;
 	zassert_equal(sid_ble_conn_param_update(&param_in), ESUCCESS);
 	zassert_equal(bt_conn_le_param_update_fake.call_count, 2);
+}
+
+ZTEST(sid_ble_connection, test_14_sid_ble_conn_mtu_foreign_conn_ignored)
+{
+	struct bt_conn app_conn = { .dummy = 0xEE };
+
+	multi_conn_fakes_install();
+	foreign_conn = &app_conn;
+
+	sid_bt_gatt_cb->att_mtu_updated(&app_conn, 247, 247);
+	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 0,
+		      "MTU of a non-Sidewalk connection reported to Sidewalk");
+}
+
+ZTEST(sid_ble_connection, test_15_sid_ble_conn_second_conn_first_disconnects_first)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 1,
+		      "Sidewalk notified about a second concurrent connection");
+	zassert_equal(sid_ble_conn_data_get()->conn, &conn_a, "Active connection overwritten");
+	zassert_mem_equal(sid_ble_conn_data_get()->addr, addr_a.a.val, BT_ADDR_SIZE);
+
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
+		      "Disconnect of the active connection not reported");
+	zassert_mem_equal(sid_ble_adapter_conn_disconnected_fake.arg0_val, addr_a.a.val,
+			  BT_ADDR_SIZE);
+	zassert_is_null(sid_ble_conn_data_get()->conn);
+
+	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
+		      "Disconnect of the second connection reported to Sidewalk");
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_16_sid_ble_conn_second_conn_disconnects_first)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+
+	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 0,
+		      "Sidewalk told disconnected while the first connection is still up");
+	zassert_equal(sid_ble_conn_data_get()->conn, &conn_a, "Active connection lost");
+
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
+		      "Disconnect of the active connection not reported");
+	zassert_is_null(sid_ble_conn_data_get()->conn);
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_17_sid_ble_conn_disconnect_event_after_deinit)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_ble_conn_deinit();
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 0,
+		      "Sidewalk callback called after deinit");
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_18_sid_ble_conn_reinit_without_disconnect_event)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_ble_conn_deinit();
+	sid_ble_conn_init();
+
+	zassert_is_null(sid_ble_conn_data_get()->conn, "Stale connection survived deinit");
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_19_sid_ble_conn_connect_event_after_deinit)
+{
+	multi_conn_fakes_install();
+
+	sid_ble_conn_deinit();
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 0,
+		      "Sidewalk callback called after deinit");
+
+	sid_ble_conn_init();
+	zassert_is_null(sid_ble_conn_data_get()->conn, "Connection taken after deinit");
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_20_sid_ble_conn_connect_event_queued_before_reinit)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_ble_conn_deinit();
+	sid_ble_conn_init();
+	ble_conn_handler_run();
+
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 0,
+		      "Connect event from before re-init reached Sidewalk");
+	zassert_is_null(sid_ble_conn_data_get()->conn, "Stale connection took the slot");
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_21_sid_ble_conn_blocking_calls_deferred)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	zassert_equal(bt_conn_le_param_update_fake.call_count, 0,
+		      "Parameter update sent from the host callback");
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 0,
+		      "Sidewalk called from the host callback");
+	ble_conn_handler_run();
+	zassert_equal(bt_conn_le_param_update_fake.call_count, 1);
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 1);
+
+	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+	zassert_equal(bt_conn_disconnect_fake.call_count, 0,
+		      "Second connection refused from the host callback");
+	ble_conn_handler_run();
+	zassert_equal(bt_conn_disconnect_fake.call_count, 1);
+	zassert_equal(bt_conn_disconnect_fake.arg0_val, &conn_b);
+	zassert_equal(bt_conn_disconnect_fake.arg1_val, BT_HCI_ERR_CONN_LIMIT_EXCEEDED);
+
+	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_CONN_LIMIT_EXCEEDED);
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_22_sid_ble_conn_events_handled_in_order)
+{
+	multi_conn_fakes_install();
+
+	/* Initial MTU before connected, then disconnect of A before connect of B. */
+	sid_bt_gatt_cb->att_mtu_updated(&conn_a, 23, 23);
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
+
+	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 1);
+	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 2);
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1);
+	zassert_equal(sid_ble_conn_data_get()->conn, &conn_b, "Events handled out of order");
+	zassert_mem_equal(sid_ble_conn_data_get()->addr, addr_b.a.val, BT_ADDR_SIZE);
+
+	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
+}
+
+ZTEST(sid_ble_connection, test_23_sid_ble_conn_mtu_from_link_before_reinit_ignored)
+{
+	multi_conn_fakes_install();
+
+	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
+	/* A outlives deinit, and init creates the Sidewalk identity again. */
+	sid_ble_conn_deinit();
+	sid_ble_conn_init();
+
+	sid_bt_gatt_cb->att_mtu_updated(&conn_a, 247, 247);
+	ble_conn_handler_run();
+	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 0,
+		      "MTU from a link of the previous init reached Sidewalk");
+
+	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
+	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 0);
+	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
 }
