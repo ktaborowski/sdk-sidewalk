@@ -136,13 +136,17 @@ static const bt_addr_le_t *bt_conn_get_dst_fake_by_conn(const struct bt_conn *co
 	return (conn == &conn_b) ? &addr_b : &addr_a;
 }
 
-/* Per-connection identity and address fakes, plus bt_conn reference accounting. */
+/* Per-connection identity and address fakes. */
 static void multi_conn_fakes_install(void)
 {
-	bt_conn_ref_fake.custom_fake = bt_conn_ref_tracked;
-	bt_conn_unref_fake.custom_fake = bt_conn_unref_tracked;
 	bt_conn_get_info_fake.custom_fake = bt_conn_get_info_fake_by_conn;
 	bt_conn_get_dst_fake.custom_fake = bt_conn_get_dst_fake_by_conn;
+}
+
+/* Let the connection work queue handle the queued events. The ztest thread is cooperative. */
+static void ble_conn_handler_run(void)
+{
+	k_sleep(K_MSEC(1));
 }
 
 static void *suite_setup(void)
@@ -161,25 +165,21 @@ static void *suite_setup(void)
 
 static void before_test(void *fixture)
 {
-	const sid_ble_conn_data_t *data = NULL;
-
 	ARG_UNUSED(fixture);
 
-	/* Drop any connection left in the module's static slot by the previous test. */
-	sid_ble_conn_init();
-	data = sid_ble_conn_data_get();
-	if (data->conn) {
-		RESET_FAKE(bt_conn_get_info);
-		bt_conn_get_info_fake.custom_fake = bt_conn_get_info_fake1;
-		sid_bt_conn_cb->disconnected(data->conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
-		zassert_is_null(data->conn, "Leftover connection not cleared");
-	}
+	/* Drop the slot and any queued event left by the previous test. */
+	sid_ble_conn_deinit();
+	ble_conn_handler_run();
 
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
 	memset(&conn_cb_test, 0x00, sizeof(conn_cb_test));
 	ref_balance = 0;
 	foreign_conn = NULL;
+	bt_conn_ref_fake.custom_fake = bt_conn_ref_tracked;
+	bt_conn_unref_fake.custom_fake = bt_conn_unref_tracked;
+
+	sid_ble_conn_init();
 }
 
 ZTEST_SUITE(sid_ble_connection, NULL, suite_setup, before_test, NULL, NULL);
@@ -228,7 +228,6 @@ ZTEST(sid_ble_connection, test_03_sid_ble_conn_positive)
 	};
 
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
@@ -237,6 +236,7 @@ ZTEST(sid_ble_connection, test_03_sid_ble_conn_positive)
 	sid_ble_conn_init();
 
 	sid_bt_conn_cb->connected(&test_conn, test_no_error);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 1);
 	zassert_mem_equal(test_addr.a.val, sid_ble_adapter_conn_connected_fake.arg0_val,
 			  BT_ADDR_SIZE);
@@ -246,6 +246,7 @@ ZTEST(sid_ble_connection, test_03_sid_ble_conn_positive)
 	zassert_mem_equal(test_addr.a.val, params->addr, BT_ADDR_SIZE);
 
 	sid_bt_conn_cb->disconnected(&test_conn, test_reason);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1);
 	zassert_mem_equal(test_addr.a.val, sid_ble_adapter_conn_disconnected_fake.arg0_val,
 			  BT_ADDR_SIZE);
@@ -263,7 +264,6 @@ ZTEST(sid_ble_connection, test_04_sid_ble_set_conn_cb_positive)
 	};
 
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
@@ -273,6 +273,7 @@ ZTEST(sid_ble_connection, test_04_sid_ble_set_conn_cb_positive)
 	sid_ble_adapter_conn_disconnected_fake.custom_fake = connection_callback_disconnected;
 
 	sid_bt_conn_cb->connected(&test_conn, test_no_error);
+	ble_conn_handler_run();
 	zassert_mem_equal(test_addr.a.val, conn_cb_test.addr, BT_ADDR_SIZE);
 
 	params = sid_ble_conn_data_get();
@@ -280,6 +281,7 @@ ZTEST(sid_ble_connection, test_04_sid_ble_set_conn_cb_positive)
 	zassert_mem_equal(test_addr.a.val, params->addr, BT_ADDR_SIZE);
 
 	sid_bt_conn_cb->disconnected(&test_conn, test_reason);
+	ble_conn_handler_run();
 	zassert_equal(conn_cb_test.state, DISCONNECTED);
 	zassert_mem_equal(test_addr.a.val, conn_cb_test.addr, BT_ADDR_SIZE);
 }
@@ -294,7 +296,6 @@ ZTEST(sid_ble_connection, test_05_sid_ble_conn_cb_set_call_count)
 	struct bt_conn test_conn = { .dummy = 0xDC };
 
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
@@ -304,17 +305,21 @@ ZTEST(sid_ble_connection, test_05_sid_ble_conn_cb_set_call_count)
 	sid_ble_adapter_conn_disconnected_fake.custom_fake = connection_callback_disconnected;
 
 	sid_bt_conn_cb->connected(&test_conn, test_no_error);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 
 	sid_bt_conn_cb->disconnected(&test_conn, test_reason);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 
 	sid_bt_conn_cb->connected(&test_conn, test_error_timeout);
+	ble_conn_handler_run();
 
 	bt_conn_get_dst_fake.return_val = NULL;
 	sid_bt_conn_cb->connected(&test_conn, test_no_error);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 }
@@ -329,7 +334,6 @@ ZTEST(sid_ble_connection, test_06_sid_ble_disconnected_wrong_conn)
 	struct bt_conn test_conn = { .dummy = 0xDC };
 
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
@@ -339,13 +343,16 @@ ZTEST(sid_ble_connection, test_06_sid_ble_disconnected_wrong_conn)
 	sid_ble_adapter_conn_disconnected_fake.custom_fake = connection_callback_disconnected;
 
 	sid_bt_conn_cb->connected(&test_conn, test_no_error);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 
 	sid_bt_conn_cb->disconnected(&test_wrong_conn, test_no_error);
+	ble_conn_handler_run();
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 
 	sid_bt_conn_cb->disconnected(&test_conn, test_reason);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 }
@@ -355,7 +362,6 @@ ZTEST(sid_ble_connection, test_07_sid_ble_cb_set_before_init)
 	size_t conn_cb_cnt_expected = 0;
 	struct bt_conn test_conn = { .dummy = 0xDC };
 
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
@@ -366,10 +372,12 @@ ZTEST(sid_ble_connection, test_07_sid_ble_cb_set_before_init)
 	sid_ble_adapter_conn_disconnected_fake.custom_fake = connection_callback_disconnected;
 
 	sid_bt_conn_cb->connected(&test_conn, 0);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 
 	sid_bt_conn_cb->disconnected(&test_conn, 19);
+	ble_conn_handler_run();
 	conn_cb_cnt_expected++;
 	zassert_equal(conn_cb_test.num_calls, conn_cb_cnt_expected);
 }
@@ -385,6 +393,7 @@ ZTEST(sid_ble_connection, test_08_sid_ble_conn_mtu_callback)
 	uint16_t tx_mtu = 32, rx_mtu = 44;
 
 	sid_bt_gatt_cb->att_mtu_updated(&test_conn, tx_mtu, rx_mtu);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 1);
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.arg0_val, tx_mtu);
 }
@@ -395,20 +404,22 @@ ZTEST(sid_ble_connection, test_09_sid_ble_conn_mtu_callback_curent_connection)
 	struct bt_conn unknow_conn = { 0 };
 
 	sid_ble_conn_init();
-	bt_conn_ref_fake.return_val = &curr_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
 
 	sid_bt_conn_cb->connected(&curr_conn, 0);
+	ble_conn_handler_run();
 
 	uint16_t tx_mtu = 32, rx_mtu = 44;
 
 	sid_bt_gatt_cb->att_mtu_updated(&curr_conn, tx_mtu, rx_mtu);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 1);
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.arg0_val, tx_mtu);
 
 	sid_bt_gatt_cb->att_mtu_updated(&unknow_conn, tx_mtu, rx_mtu);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 1);
 }
 
@@ -427,17 +438,18 @@ ZTEST(sid_ble_connection, test_10_sid_ble_conn_disconnect)
 
 	sid_ble_conn_init();
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
 
 	sid_bt_conn_cb->connected(&test_conn, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 
 	bt_conn_disconnect_fake.return_val = ESUCCESS;
 	zassert_equal(sid_ble_conn_disconnect(), ESUCCESS);
 
 	sid_bt_conn_cb->connected(&test_conn, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	bt_conn_disconnect_fake.return_val = -ENOTCONN;
 	zassert_equal(sid_ble_conn_disconnect(), -ENOTCONN);
 }
@@ -454,7 +466,6 @@ ZTEST(sid_ble_connection, test_11_sid_ble_disconnect_cb_still_cleans_up_when_con
 	sid_ble_conn_deinit();
 	sid_ble_conn_init();
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 
 	int (*custom_fakes[])(const struct bt_conn *, struct bt_conn_info *) = {
 		bt_conn_get_info_fake1,
@@ -464,7 +475,9 @@ ZTEST(sid_ble_connection, test_11_sid_ble_disconnect_cb_still_cleans_up_when_con
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 3);
 
 	sid_bt_conn_cb->connected(&test_conn, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	sid_bt_conn_cb->disconnected(&test_conn, test_reason);
+	ble_conn_handler_run();
 
 	const sid_ble_conn_data_t *params = sid_ble_conn_data_get();
 	zassert_not_null(params);
@@ -487,12 +500,12 @@ ZTEST(sid_ble_connection, test_12_sid_ble_conn_param_get)
 		.a = { { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 } },
 	};
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake_param_get };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
 
 	sid_bt_conn_cb->connected(&test_conn, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 
 	memset(&param_out, 0, sizeof(param_out));
 	zassert_equal(sid_ble_conn_param_get(&param_out), ESUCCESS);
@@ -523,12 +536,12 @@ ZTEST(sid_ble_connection, test_13_sid_ble_conn_param_update)
 		.a = { { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f } },
 	};
 	bt_conn_get_dst_fake.return_val = &test_addr;
-	bt_conn_ref_fake.return_val = &test_conn;
 	int (*custom_fakes[])(const struct bt_conn *,
 			      struct bt_conn_info *) = { bt_conn_get_info_fake1 };
 	SET_CUSTOM_FAKE_SEQ(bt_conn_get_info, custom_fakes, 1);
 
 	sid_bt_conn_cb->connected(&test_conn, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 
 	bt_conn_le_param_update_fake.call_count = 0;
 	bt_conn_le_param_update_fake.return_val = ESUCCESS;
@@ -551,6 +564,7 @@ ZTEST(sid_ble_connection, test_14_sid_ble_conn_mtu_foreign_conn_ignored)
 	foreign_conn = &app_conn;
 
 	sid_bt_gatt_cb->att_mtu_updated(&app_conn, 247, 247);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_mtu_changed_fake.call_count, 0,
 		      "MTU of a non-Sidewalk connection reported to Sidewalk");
 }
@@ -560,13 +574,16 @@ ZTEST(sid_ble_connection, test_15_sid_ble_conn_second_conn_first_disconnects_fir
 	multi_conn_fakes_install();
 
 	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 1,
 		      "Sidewalk notified about a second concurrent connection");
 	zassert_equal(sid_ble_conn_data_get()->conn, &conn_a, "Active connection overwritten");
 	zassert_mem_equal(sid_ble_conn_data_get()->addr, addr_a.a.val, BT_ADDR_SIZE);
 
 	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
 		      "Disconnect of the active connection not reported");
 	zassert_mem_equal(sid_ble_adapter_conn_disconnected_fake.arg0_val, addr_a.a.val,
@@ -574,6 +591,7 @@ ZTEST(sid_ble_connection, test_15_sid_ble_conn_second_conn_first_disconnects_fir
 	zassert_is_null(sid_ble_conn_data_get()->conn);
 
 	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
 		      "Disconnect of the second connection reported to Sidewalk");
 	zassert_equal(ref_balance, 0, "bt_conn reference leaked");
@@ -584,14 +602,18 @@ ZTEST(sid_ble_connection, test_16_sid_ble_conn_second_conn_disconnects_first)
 	multi_conn_fakes_install();
 
 	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	sid_bt_conn_cb->connected(&conn_b, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 
 	sid_bt_conn_cb->disconnected(&conn_b, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 0,
 		      "Sidewalk told disconnected while the first connection is still up");
 	zassert_equal(sid_ble_conn_data_get()->conn, &conn_a, "Active connection lost");
 
 	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 1,
 		      "Disconnect of the active connection not reported");
 	zassert_is_null(sid_ble_conn_data_get()->conn);
@@ -603,8 +625,10 @@ ZTEST(sid_ble_connection, test_17_sid_ble_conn_disconnect_event_after_deinit)
 	multi_conn_fakes_install();
 
 	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	sid_ble_conn_deinit();
 	sid_bt_conn_cb->disconnected(&conn_a, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	ble_conn_handler_run();
 
 	zassert_equal(sid_ble_adapter_conn_disconnected_fake.call_count, 0,
 		      "Sidewalk callback called after deinit");
@@ -616,6 +640,7 @@ ZTEST(sid_ble_connection, test_18_sid_ble_conn_reinit_without_disconnect_event)
 	multi_conn_fakes_install();
 
 	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	sid_ble_conn_deinit();
 	sid_ble_conn_init();
 
@@ -629,6 +654,7 @@ ZTEST(sid_ble_connection, test_19_sid_ble_conn_connect_event_after_deinit)
 
 	sid_ble_conn_deinit();
 	sid_bt_conn_cb->connected(&conn_a, BT_HCI_ERR_SUCCESS);
+	ble_conn_handler_run();
 	zassert_equal(sid_ble_adapter_conn_connected_fake.call_count, 0,
 		      "Sidewalk callback called after deinit");
 

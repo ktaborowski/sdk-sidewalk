@@ -179,6 +179,32 @@ config SIDEWALK_BLE_ADV_INT_TRANSITION
 	range 1 2147483647
 	default 30
 
+config SIDEWALK_BLE_CONN_WORKQ_STACK_SIZE
+	int "Stack size of the Sidewalk BLE connection work queue"
+	default 1536
+	help
+	  The work queue handles Bluetooth connection, disconnection and MTU events
+	  outside of the Bluetooth host callbacks. It runs the Sidewalk connection
+	  and MTU callbacks.
+
+config SIDEWALK_BLE_CONN_WORKQ_PRIORITY
+	int "Cooperative priority of the Sidewalk BLE connection work queue"
+	range 0 15
+	default 9
+	help
+	  Passed to K_PRIO_COOP(). The default is one level below the Bluetooth
+	  RX thread (BT_RX_PRIO), so the handler never delays the host, and it
+	  stays cooperative like the host context it replaces.
+
+config SIDEWALK_BLE_CONN_EVT_QUEUE_SIZE
+	int "Number of queued Sidewalk BLE connection events"
+	range 4 64
+	default 8
+	help
+	  A dropped disconnection event leaves the Sidewalk connection slot taken,
+	  so keep the queue large enough for the connection, disconnection and MTU
+	  events of all links.
+
 config SIDEWALK_VENDOR_SERVICE
 	bool "Sidewalk BLE vendor service"
 
