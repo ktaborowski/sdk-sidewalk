@@ -4,19 +4,6 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-&cpuapp_rram {
-	reg = <0x0 DT_SIZE_K(1524)>;
-};
-
-&cpuapp_sram {
-	reg = <0x20000000 DT_SIZE_K(256)>;
-	ranges = <0x0 0x20000000 0x40000>;
-};
-
-&uart20 {
-	/delete-property/ hw-flow-control;
-};
-
 /delete-node/ &boot_partition;
 /delete-node/ &slot0_partition;
 /delete-node/ &slot1_partition;

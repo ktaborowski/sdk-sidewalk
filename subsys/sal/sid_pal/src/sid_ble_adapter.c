@@ -308,6 +308,17 @@ static sid_error_t ble_adapter_set_adv_data(uint8_t *data, uint8_t length)
 static sid_error_t ble_adapter_start_advertisement(void)
 {
 	LOG_DBG("Sidewalk -> BLE");
+
+	if (!sid_ble_conn_data_get()) {
+		LOG_ERR("Connection module not initialized");
+		return SID_ERROR_GENERIC;
+	}
+
+	if (sid_ble_conn_is_connected()) {
+		LOG_ERR("Previous connection still active");
+		return SID_ERROR_INVALID_STATE;
+	}
+
 	int err = sid_ble_advert_start();
 
 	if (err) {
@@ -572,6 +583,7 @@ static sid_error_t ble_adapter_disconnect(void)
 static sid_error_t ble_adapter_deinit(void)
 {
 	LOG_DBG("Sidewalk -> BLE");
+	sid_ble_conn_disconnect();
 	sid_ble_conn_deinit();
 	sid_ble_advert_deinit();
 	bt_id_delete(BT_ID_SIDEWALK);

@@ -26,32 +26,30 @@ A known issue can list one or more of the following entries:
 List of known issues for v1.3.0
 *******************************
 
-KRKNWK-20891: Multilink downlinks are sent over an incorrect transport
+KRKNWK-22489: On-device certification cannot store the manufacturing page
 
-  When multilink is configured (for example, Bluetooth LE and LoRa), downlink messages sent from the cloud are always received over LoRa, regardless of the transport used for the corresponding uplink.
-  The expected behavior is that the downlink uses the same transport as the uplink.
+  The ``cert store`` command of the on-device certification CLI (``CONFIG_SIDEWALK_ON_DEV_CERT``) returns ``SID_ERROR_NOSUPPORT`` (-6) and the generated credentials are not stored.
+  The manufacturing storage writes each TLV entry with a 4-byte alignment, while the RRAM write block size is 16 bytes, so the flash driver rejects the write.
 
   **Failing Test Cases:**
 
-  - ``MULTI/EP/CONN/DL/BV/01``: Endpoint is able to receive a downlink packet using BLE.
-  - ``MULTI/EP/CONN/DL/BV/02``: Endpoint is able to receive a downlink packet using LoRa.
-  - ``MULTI/EP/CONN/DL/BV/03``: Endpoint is able to receive a downlink packet using LoRa, while BLE connection with Gateway is established.
+  - None.
 
-  **Affected platforms:** All platforms with LoRa or FSK support.
+  **Affected platforms:** All nRF54L Series platforms.
 
-KRKNWK-22012: Switching power profiles fails on the LR1110
+KRKNWK-22012: Switching power profiles fails on FSK builds when using shell commands
 
   On FSK builds, switching power profiles (``sid option -lp_set 0x02 630``) might return ``SID_ERROR_INVALID_ARGS`` (-11).
   In such cases, the device does not become ready again within the expected time.
-  On LoRa builds, switching profiles might leave the device unable to recover the ready state, or leave the link down.
 
   **Failing Test Cases:**
 
   - ``FSK/EP/PWR/OPT/BV/01``: Verify RX duration can be adjusted.
-  - ``LORA/EP/CONN/LP/BV/01``: Endpoint can select Profile A and complete Join procedure.
-  - ``LORA/EP/CONN/LP/BV/02``: Endpoint can select Profile B and complete Join procedure.
 
-  **Affected platforms:** All platforms with LoRa or FSK support.
+  **Affected platforms:** All platforms with FSK support.
+
+  **Workaround:** Call the equivalent ``sid_option()`` API directly.
+  The issue is caused by command parser in the DUT sample application CLI, not the Sidewalk stack.
 
 KRKNWK-20371: SBDT multi-image DFU does not resume after a reset
 
@@ -79,27 +77,6 @@ KRKNWK-20857: Location modem stays busy when scan operation overlaps with deinit
   **Workaround:** If the location modem stays busy, and cannot perform the scan, restart the device.
     Ensure the location service deinit is triggered when there is no ongoing scan.
 
-KRKNWK-22410: Registration and deregistration over FSK is not verified against the certification tests
-
-  Registration and deregistration of the device over the FSK transport is not verified against the current certification test signatures.
-
-  **Failing Test Cases:**
-
-  - ``FSK/EP/CONN/REG/BV/02``: Endpoint can be deregistered from Sidewalk network.
-  - ``FSK/EP/CONN/REG/BV/03``: An unregistered Endpoint successfully completes Sidewalk device registration with use of FFN.
-
-  **Affected platforms:** All platforms with LoRa or FSK support.
-
-KRKNWK-22411: Uplink and downlink exchange during UUID rotation is not verified for FSK and LoRa
-
-  Exchanging uplink and downlink messages while a UUID rotation is in progress is not verified against the current certification test signatures.
-
-  **Failing Test Cases:**
-
-  - ``FSK/EP/SEC/UUID/BV/03``: Endpoint can exchange UL/DL during UUID rotation.
-  - ``LORA/EP/SEC/UUID/BV/03``: Endpoint can exchange UL/DL during UUID rotation.
-
-  **Affected platforms:** All platforms with LoRa or FSK support.
 
 List of known issues for v1.2.0
 *******************************

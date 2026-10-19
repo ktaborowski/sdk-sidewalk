@@ -28,6 +28,9 @@ Changelog
 
   * Support for the :ref:`nRF Sidewalk EB <nrf_sidewalk_eb>` shield on the nRF54L15 DK and nRF54LM20 DK.
     The shield enables the LoRa and FSK link types.
+  * Support for the `nRF7002 EB II`_ shield on the nRF54L15 DK and nRF54LM20 DK.
+    The shield provides Wi-Fi location scanning with an nRF70 Series companion IC as an alternative to the LR1110 radio.
+    For details, see the :ref:`location_services` page.
   * :ref:`lr11xx_firmware_update` sample for updating Semtech LR1110 transceiver firmware.
   * :ref:`application_development` documentation section.
   * ``west sid provision`` command for generating the ``mfg_storage`` partition contents and flashing it to a connected board.
@@ -35,6 +38,7 @@ Changelog
 * Updated:
 
   * The nRF Connect SDK from v3.3.0 to v3.4.0.
+  * The Amazon Sidewalk libraries to the latest official release v1.19.4.
   * Flash layout for the ``nrf54l15dk/nrf54l15/cpuapp/ns`` board target, by completing the migration from Partition Manager to devicetree overlays.
   * MCUboot signature type to follow the recommended defaults in the nRF Connect SDK.
     On the nRF54L Series platforms, the bootloader now uses ED25519 instead of RSA.
