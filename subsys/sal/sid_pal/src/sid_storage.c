@@ -133,6 +133,17 @@ sid_error_t sid_pal_storage_kv_init()
 	return SID_ERROR_NONE;
 }
 
+sid_error_t sid_pal_storage_kv_deinit(void)
+{
+	/* The Zephyr settings subsystem has no teardown counterpart to
+	 * settings_subsys_init(), and the secure key storage is released by
+	 * sid_pal_crypto_deinit(). Nothing is left to release here.
+	 */
+	LOG_DBG("Deinitialized KV storage");
+
+	return SID_ERROR_NONE;
+}
+
 sid_error_t sid_pal_storage_kv_record_get(uint16_t group, uint16_t key, void *p_data, uint32_t len)
 {
 	if (!p_data) {
