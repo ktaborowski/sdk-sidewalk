@@ -267,6 +267,10 @@ if(NOT CONFIG_SIDEWALK_PAL_ZEPHYR_LIBS_DISABLED)
 		target_sources(sid_pal_location_gnss_impl PRIVATE sid_location_gnss.c)
 		target_link_libraries(sid_pal_location_gnss_impl PRIVATE sid_pal_gnss_ifc)
 	endif()
+
+	zephyr_library_named(sid_pal_gps_assist_impl)
+	target_sources(sid_pal_gps_assist_impl PRIVATE sid_gps_assist.c)
+	target_link_libraries(sid_pal_gps_assist_impl PRIVATE sid_pal_gps_assist_ifc)
 endif()
 
 # zephyr_library_named() leaves ZEPHYR_CURRENT_LIBRARY set; later bare
